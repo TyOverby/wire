@@ -1,8 +1,8 @@
 extern crate bincode;
 extern crate serialize;
 
-use std::io::net::tcp::TcpStream;
-use std::io::{IoResult, IoError, BufferedReader};
+use std::io::net::tcp::{TcpStream, TcpListener};
+use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor};
 use std::comm::{Sender, Receiver, channel};
 use std::task::spawn;
 
@@ -15,6 +15,19 @@ where I: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>
       O: Send + Encodable<EncoderWriter<'b, TcpStream>, IoError> {
     let path = format!("{}:{}", ip, port);
     Ok(upgrade(try!(TcpStream::connect(path[]))))
+}
+
+pub fn listen(ip: &str, port: u16) -> IoResult<Receiver<TcpStream>> {
+    let tcpl = try!(try!(TcpListener::bind((ip, port))).listen());
+    let (sx, rx) = channel();
+    spawn(proc() {
+        let mut tcpl = tcpl;
+        loop {
+            let stream = tcpl.accept().unwrap();
+            sx.send(stream);
+        }
+    });
+    Ok(rx)
 }
 
 pub fn upgrade<'a, 'b, I, O>(stream: TcpStream) -> (Receiver<I>, Sender<O>)
