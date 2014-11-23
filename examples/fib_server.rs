@@ -12,7 +12,7 @@ fn fib(n: u64) -> u64 {
 
 fn main() {
     // Make a listener on 0.0.0.0:8080
-    let listener = wire::listen("0.0.0.0", 8080).unwrap();
+    let (listener, _) = wire::listen("0.0.0.0", 8080).unwrap();
     // Turn the listener into an iterator of connections.
     // For each connection...
     for connection in listener.into_blocking_iter() {
