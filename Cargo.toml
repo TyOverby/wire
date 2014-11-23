@@ -9,8 +9,6 @@ documentation = "http://tyoverby.com/wire/wire/index.html"
 keywords = ["tcp", "serialization", "encode", "network"]
 description = "An abstraction over TCP and struct serialization"
 
-[dependencies.bincode]
-git = "https://github.com/TyOverby/bincode.git"
-
-[dependencies.bchannel]
-git = "https://github.com/TyOverby/bchannel.git"
+[dependencies]
+bincode = "0.0.1"
+bchannel = "0.0.1"
