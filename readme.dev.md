@@ -8,6 +8,7 @@ and have it come out the other side, then Wire might be what you are looking for
 ## Example
 Let's write a simple server that computes fibonacci numbers as a service.
 
+These files can be found in the `examples` directory.
 ### Server
 
 ^code(./examples/fib_server.rs)
