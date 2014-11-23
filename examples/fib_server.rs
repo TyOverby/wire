@@ -22,7 +22,7 @@ fn main() {
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
-                assert!(o.send(&(x, fib(x))).is_ok())
+                o.send(&(x, fib(x)));
             }
         });
     }

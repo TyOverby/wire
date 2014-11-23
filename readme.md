@@ -35,7 +35,7 @@ fn main() {
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
-                assert!(o.send(&(x, fib(x))).is_ok())
+                o.send(&(x, fib(x)));
             }
         });
     }
@@ -56,7 +56,7 @@ fn main() {
 
     // Send all the numbers from 0 to 10.
     for x in range(0u64, 10u64) {
-        assert!(o.send(&x).is_ok());
+        o.send(&x);
     }
     // Close our outgoing pipe.
     o.close();
