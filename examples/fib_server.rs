@@ -19,11 +19,11 @@ fn main() {
         // Spawn a new thread
         spawn(proc() {
             // Upgrade the connection to read `u64` and write `(u64, u64)`.
-            let (i, o) = wire::upgrade(connection);
+            let (i, mut o) = wire::upgrade(connection);
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
-                o.send((x, fib(x))).unwrap()
+                o.send(&(x, fib(x))).unwrap()
             }
         });
     }
