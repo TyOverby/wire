@@ -7,6 +7,7 @@ authors = ["TyOverby <ty@pre-alpha.com>"]
 repository = "https://github.com/TyOverby/wire"
 documentation = "http://tyoverby.com/wire/wire/index.html"
 keywords = ["tcp", "serialization", "encode", "network"]
+license = "MIT"
 description = "An abstraction over TCP and struct serialization"
 
 [dependencies]
