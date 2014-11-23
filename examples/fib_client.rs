@@ -2,10 +2,10 @@ extern crate wire;
 
 fn main() {
     let (i, o) = wire::connect::<(u64, u64), u64>("localhost", 8080).unwrap();
-    for x in range(0, 10) {
-        o.send(x);
-    }
-    for _ in range(0u, 10) {
-        println!("{}", i.recv());
+
+    o.send_all(range(0, 10));
+
+    for x in i.into_blocking_iter().take(10) {
+        println!("{}", x);
     }
 }

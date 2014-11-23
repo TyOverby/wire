@@ -6,3 +6,6 @@ authors = ["TyOverby <ty@pre-alpha.com>"]
 
 [dependencies.bincode]
 git = "https://github.com/TyOverby/bincode.git"
+
+[dependencies.bchannel]
+git = "https://github.com/TyOverby/bchannel.git"
