@@ -139,7 +139,7 @@ where T: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>
                 }
             }
         }
-        let mut s1 = buffer.unwrap();
+        let mut s1 = buffer.into_inner();
         let _ = s1.close_read();
     });
     in_rec
