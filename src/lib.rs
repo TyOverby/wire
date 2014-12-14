@@ -1,4 +1,4 @@
-#![feature(if_let, unsafe_destructor)]
+#![feature(unsafe_destructor)]
 
 extern crate bincode;
 extern crate serialize;
