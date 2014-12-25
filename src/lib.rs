@@ -1,12 +1,12 @@
 #![feature(unsafe_destructor)]
 
 extern crate bincode;
-extern crate serialize;
+extern crate "rustc-serialize" as serialize;
 extern crate bchannel;
 
 use std::io::net::tcp::{TcpStream, TcpListener, TcpAcceptor};
 use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor, TimedOut};
-use std::task::spawn;
+use std::thread::Thread;
 use std::rc::{is_unique, Rc};
 use std::sync::Mutex;
 
@@ -28,8 +28,8 @@ where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
         let mut stream = self.tcp_stream.lock();
         bincode::encode_into(m, stream.deref_mut())
     }
-    pub fn send_all<'a, I: Iterator<&'a T>>(&mut self, mut i: I) ->
-    Result<(), (&'a T, I, IoError)> {
+    pub fn send_all<'b, I: Iterator<&'b T>>(&mut self, mut i: I) ->
+    Result<(), (&'b T, I, IoError)> {
         loop {
             match i.next() {
                 None => return Ok(()),
@@ -76,7 +76,7 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
     let (sx, rx) = channel();
 
     let mut tcpl2 = tcpl.clone();
-    spawn(proc() {
+    Thread::spawn(move || {
         loop {
             if sx.is_closed() {
                 break;
@@ -96,7 +96,7 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
                 }
             }
         }
-    });
+    }).detach();
     Ok((rx, tcpl))
 }
 
@@ -121,7 +121,7 @@ fn upgrade_reader<'a, T>(stream: TcpStream) -> Receiver<T, IoError>
 where T: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError> {
     let (in_snd, in_rec) = channel();
 
-    spawn(proc() {
+    Thread::spawn(move || {
         let mut buffer = BufferedReader::new(stream);
         loop {
             match bincode::decode_from(&mut buffer) {
@@ -141,6 +141,6 @@ where T: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>
         }
         let mut s1 = buffer.into_inner();
         let _ = s1.close_read();
-    });
+    }).detach();
     in_rec
 }
