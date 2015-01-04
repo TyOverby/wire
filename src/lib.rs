@@ -1,21 +1,22 @@
-#![feature(if_let, unsafe_destructor)]
+#![feature(unsafe_destructor)]
 
 extern crate bincode;
-extern crate serialize;
+extern crate "rustc-serialize" as serialize;
 extern crate bchannel;
 
 use std::io::net::tcp::{TcpStream, TcpListener, TcpAcceptor};
-use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor, TimedOut};
-use std::task::spawn;
+use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor, TimedOut, IoErrorKind};
+use std::thread::Thread;
 use std::rc::{is_unique, Rc};
 use std::sync::Mutex;
+use std::ops::DerefMut;
 
 use serialize::{Decodable, Encodable};
 use bincode::{EncoderWriter, DecoderReader};
 pub use bchannel::{Sender, Receiver};
 use bchannel::channel;
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct OutStream<T> {
     // wrap a mutex around a tcpstream so that we can get
     // writes from multiple threads.
@@ -25,11 +26,17 @@ pub struct OutStream<T> {
 impl <'a, T> OutStream<T>
 where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
     pub fn send(&mut self, m: &T) -> IoResult<()> {
-        let mut stream = self.tcp_stream.lock();
+        let stream = self.tcp_stream.lock();
+        let mut stream = try!(stream.map_err(|_| IoError{
+            kind: IoErrorKind::OtherIoError,
+            desc: "the tcp stream has been poisoned",
+            detail: None
+        }));
         bincode::encode_into(m, stream.deref_mut())
     }
-    pub fn send_all<'a, I: Iterator<&'a T>>(&mut self, mut i: I) ->
-    Result<(), (&'a T, I, IoError)> {
+
+    pub fn send_all<'b, I: Iterator<Item = &'b T>>(&mut self, mut i: I) ->
+    Result<(), (&'b T, I, IoError)> {
         loop {
             match i.next() {
                 None => return Ok(()),
@@ -49,7 +56,9 @@ where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
 impl <T> Drop for OutStream<T> {
     fn drop(&mut self) {
         if is_unique(&self.tcp_stream) {
-            let _ = self.tcp_stream.lock().close_write();
+            if let Ok(mut stream) = self.tcp_stream.lock() {
+                stream.close_write().ok();
+            }
         }
     }
 }
@@ -76,7 +85,7 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
     let (sx, rx) = channel();
 
     let mut tcpl2 = tcpl.clone();
-    spawn(proc() {
+    Thread::spawn(move || {
         loop {
             if sx.is_closed() {
                 break;
@@ -96,7 +105,7 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
                 }
             }
         }
-    });
+    }).detach();
     Ok((rx, tcpl))
 }
 
@@ -121,7 +130,7 @@ fn upgrade_reader<'a, T>(stream: TcpStream) -> Receiver<T, IoError>
 where T: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError> {
     let (in_snd, in_rec) = channel();
 
-    spawn(proc() {
+    Thread::spawn(move || {
         let mut buffer = BufferedReader::new(stream);
         loop {
             match bincode::decode_from(&mut buffer) {
@@ -141,6 +150,6 @@ where T: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>
         }
         let mut s1 = buffer.into_inner();
         let _ = s1.close_read();
-    });
+    }).detach();
     in_rec
 }
