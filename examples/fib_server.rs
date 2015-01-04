@@ -1,6 +1,6 @@
 extern crate wire;
 
-use std::task::spawn;
+use std::thread::Thread;
 
 fn fib(n: u64) -> u64 {
     match n {
@@ -16,14 +16,14 @@ fn main() {
     // Turn the listener into an iterator of connections.
     for connection in listener.into_blocking_iter() {
         // Spawn a new thread for each connection that we get.
-        spawn(proc() {
+        Thread::spawn(move || {
             // Upgrade the connection to read `u64` and write `(u64, u64)`.
             let (i, mut o) = wire::upgrade(connection);
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
-                o.send(&(x, fib(x)));
+                o.send(&(x, fib(x))).ok();
             }
-        });
+        }).detach();
     }
 }

@@ -5,34 +5,26 @@ extern crate "rustc-serialize" as serialize;
 extern crate bchannel;
 
 use std::io::net::tcp::{TcpStream, TcpListener, TcpAcceptor};
-use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor, TimedOut, IoErrorKind};
+use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor, TimedOut};
 use std::thread::Thread;
-use std::rc::{is_unique, Rc};
-use std::sync::Mutex;
-use std::ops::DerefMut;
 
 use serialize::{Decodable, Encodable};
+
 use bincode::{EncoderWriter, DecoderReader};
+
 pub use bchannel::{Sender, Receiver};
 use bchannel::channel;
 
-#[derive(Clone)]
 pub struct OutStream<T> {
     // wrap a mutex around a tcpstream so that we can get
     // writes from multiple threads.
-    tcp_stream: Rc<Mutex<TcpStream>>,
+    tcp_stream: TcpStream,
 }
 
 impl <'a, T> OutStream<T>
 where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
     pub fn send(&mut self, m: &T) -> IoResult<()> {
-        let stream = self.tcp_stream.lock();
-        let mut stream = try!(stream.map_err(|_| IoError{
-            kind: IoErrorKind::OtherIoError,
-            desc: "the tcp stream has been poisoned",
-            detail: None
-        }));
-        bincode::encode_into(m, stream.deref_mut())
+        bincode::encode_into(m, &mut self.tcp_stream)
     }
 
     pub fn send_all<'b, I: Iterator<Item = &'b T>>(&mut self, mut i: I) ->
@@ -55,11 +47,7 @@ where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
 #[unsafe_destructor]
 impl <T> Drop for OutStream<T> {
     fn drop(&mut self) {
-        if is_unique(&self.tcp_stream) {
-            if let Ok(mut stream) = self.tcp_stream.lock() {
-                stream.close_write().ok();
-            }
-        }
+        self.tcp_stream.close_write().ok();
     }
 }
 
@@ -122,7 +110,7 @@ where I: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>
 fn upgrade_writer<'a, T>(stream: TcpStream) -> OutStream<T>
 where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
     OutStream {
-        tcp_stream: Rc::new(Mutex::new(stream))
+        tcp_stream: stream
     }
 }
 
