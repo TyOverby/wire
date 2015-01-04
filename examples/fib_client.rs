@@ -8,7 +8,7 @@ fn main() {
 
     // Send all the numbers from 0 to 10.
     for x in range(0u64, 10u64) {
-        o.send(&x);
+        o.send(&x).ok();
     }
     // Close our outgoing pipe.
     o.close();
