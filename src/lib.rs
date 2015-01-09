@@ -4,13 +4,29 @@ extern crate bincode;
 extern crate "rustc-serialize" as serialize;
 extern crate bchannel;
 
-use std::io::net::tcp::{TcpStream, TcpListener, TcpAcceptor};
-use std::io::{IoResult, IoError, BufferedReader, Listener, Acceptor, TimedOut};
+use std::io::net::tcp::{
+    TcpStream,
+    TcpListener,
+    TcpAcceptor
+};
+use std::io::{
+    IoResult,
+    IoError,
+    BufferedReader,
+    Listener,
+    Acceptor,
+    TimedOut
+};
 use std::thread::Thread;
 
 use serialize::{Decodable, Encodable};
 
-use bincode::{EncoderWriter, DecoderReader};
+use bincode::{
+    EncoderResult,
+    DecoderResult,
+    EncoderError,
+    DecoderError
+};
 
 pub use bchannel::{Sender, Receiver};
 use bchannel::channel;
@@ -22,7 +38,7 @@ pub struct OutStream<T> {
 }
 
 impl <'a, T> OutStream<T>
-where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
+where T: Encodable {
     pub fn send(&mut self, m: &T) -> IoResult<()> {
         bincode::encode_into(m, &mut self.tcp_stream)
     }
@@ -55,8 +71,8 @@ impl <T> Drop for OutStream<T> {
 /// details.
 pub fn connect<'a, 'b, I, O>(ip: &str, port: u16) ->
 IoResult<(Receiver<I, IoError>, OutStream<O>)>
-where I: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>,
-      O: Encodable<EncoderWriter<'b, TcpStream>, IoError> {
+where I: Send + Decodable,
+      O: Encodable {
     let path = format!("{}:{}", ip, port);
     Ok(upgrade(try!(TcpStream::connect(path[]))))
 }
@@ -102,20 +118,20 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
 /// values, that respective part is shut down.
 pub fn upgrade<'a, 'b, I, O>(stream: TcpStream) ->
 (Receiver<I, IoError>, OutStream<O>)
-where I: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError>,
-      O: Encodable<EncoderWriter<'b, TcpStream>, IoError> {
+where I: Send + Decodable,
+      O: Encodable {
     (upgrade_reader(stream.clone()), upgrade_writer(stream))
 }
 
 fn upgrade_writer<'a, T>(stream: TcpStream) -> OutStream<T>
-where T: Encodable<EncoderWriter<'a, TcpStream>, IoError> {
+where T: Encodable {
     OutStream {
         tcp_stream: stream
     }
 }
 
 fn upgrade_reader<'a, T>(stream: TcpStream) -> Receiver<T, IoError>
-where T: Send + Decodable<DecoderReader<'a, BufferedReader<TcpStream>>, IoError> {
+where T: Send + Decodable {
     let (in_snd, in_rec) = channel();
 
     Thread::spawn(move || {
