@@ -1,4 +1,5 @@
 #![feature(unsafe_destructor)]
+#![allow(unstable)]
 
 extern crate bincode;
 extern crate "rustc-serialize" as serialize;
@@ -9,6 +10,7 @@ use std::io::net::tcp::{
     TcpListener,
     TcpAcceptor
 };
+
 use std::io::{
     IoResult,
     IoError,
@@ -17,34 +19,35 @@ use std::io::{
     Acceptor,
     TimedOut
 };
+
 use std::thread::Thread;
 
 use serialize::{Decodable, Encodable};
 
 use bincode::{
-    EncoderResult,
-    DecoderResult,
-    EncoderError,
-    DecoderError
+    EncodingResult,
+    EncodingError,
+    DecodingError
 };
+
+pub use bincode::SizeLimit;
 
 pub use bchannel::{Sender, Receiver};
 use bchannel::channel;
 
 pub struct OutStream<T> {
-    // wrap a mutex around a tcpstream so that we can get
-    // writes from multiple threads.
     tcp_stream: TcpStream,
+    write_limit: SizeLimit
 }
 
 impl <'a, T> OutStream<T>
 where T: Encodable {
-    pub fn send(&mut self, m: &T) -> IoResult<()> {
-        bincode::encode_into(m, &mut self.tcp_stream)
+    pub fn send(&mut self, m: &T) -> EncodingResult<()> {
+        bincode::encode_into(m, &mut self.tcp_stream, self.write_limit)
     }
 
     pub fn send_all<'b, I: Iterator<Item = &'b T>>(&mut self, mut i: I) ->
-    Result<(), (&'b T, I, IoError)> {
+    Result<(), (&'b T, I, EncodingError)> {
         loop {
             match i.next() {
                 None => return Ok(()),
@@ -57,6 +60,7 @@ where T: Encodable {
             }
         }
     }
+
     pub fn close(self) {}
 }
 
@@ -69,12 +73,13 @@ impl <T> Drop for OutStream<T> {
 
 /// Connect to a server and open a send-receive pair.  See `upgrade` for more
 /// details.
-pub fn connect<'a, 'b, I, O>(ip: &str, port: u16) ->
-IoResult<(Receiver<I, IoError>, OutStream<O>)>
+pub fn connect<'a, 'b, I, O>(ip: &str, port: u16,
+                             read_limit: SizeLimit, write_limit: SizeLimit) ->
+IoResult<(Receiver<I, DecodingError>, OutStream<O>)>
 where I: Send + Decodable,
       O: Encodable {
     let path = format!("{}:{}", ip, port);
-    Ok(upgrade(try!(TcpStream::connect(path[]))))
+    Ok(upgrade(try!(TcpStream::connect(path.as_slice())), read_limit, write_limit))
 }
 
 /// Starts listening for connections on this ip and port.
@@ -109,38 +114,41 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
                 }
             }
         }
-    }).detach();
+    });
     Ok((rx, tcpl))
 }
 
 /// Upgrades a TcpStream to a Sender-Receiver pair that you can use to send and
 /// receive objects automatically.  If there is an error decoding or encoding
 /// values, that respective part is shut down.
-pub fn upgrade<'a, 'b, I, O>(stream: TcpStream) ->
-(Receiver<I, IoError>, OutStream<O>)
+pub fn upgrade<'a, 'b, I, O>(stream: TcpStream,
+                             read_limit: SizeLimit, write_limit: SizeLimit) ->
+(Receiver<I, DecodingError>, OutStream<O>)
 where I: Send + Decodable,
       O: Encodable {
-    (upgrade_reader(stream.clone()), upgrade_writer(stream))
+    (upgrade_reader(stream.clone(), read_limit),
+     upgrade_writer(stream, write_limit))
 }
 
-fn upgrade_writer<'a, T>(stream: TcpStream) -> OutStream<T>
+fn upgrade_writer<'a, T>(stream: TcpStream, write_limit: SizeLimit) -> OutStream<T>
 where T: Encodable {
     OutStream {
-        tcp_stream: stream
+        tcp_stream: stream,
+        write_limit: write_limit
     }
 }
 
-fn upgrade_reader<'a, T>(stream: TcpStream) -> Receiver<T, IoError>
+fn upgrade_reader<'a, T>(stream: TcpStream, read_limit: SizeLimit) -> Receiver<T, DecodingError>
 where T: Send + Decodable {
     let (in_snd, in_rec) = channel();
 
     Thread::spawn(move || {
         let mut buffer = BufferedReader::new(stream);
+        let read_limit = read_limit;
         loop {
-            match bincode::decode_from(&mut buffer) {
+            match bincode::decode_from(&mut buffer, read_limit) {
                 Ok(a) => {
-                    // Try to send, and if we can't,
-                    // then the channel is closed.
+                    // Try to send, and if we can't, then the channel is closed.
                     if in_snd.send(a).is_err() {
                         break;
                     }
@@ -154,6 +162,6 @@ where T: Send + Decodable {
         }
         let mut s1 = buffer.into_inner();
         let _ = s1.close_read();
-    }).detach();
+    });
     in_rec
 }
