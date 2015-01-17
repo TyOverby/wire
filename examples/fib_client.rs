@@ -11,7 +11,7 @@ fn main() {
     // Connect to our running fib-server.
     // incoming: (u64, u64)
     // outgoing: u64
-    let (i, mut o) = wire::connect("localhost", 8080, read_limit, write_limit).unwrap();
+    let (i, mut o) = wire::connect_tcp("localhost", 8080, read_limit, write_limit).unwrap();
 
     // Send all the numbers from 0 to 10.
     for x in 0 .. 10 {

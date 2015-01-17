@@ -13,7 +13,7 @@ fn fib(n: u64) -> u64 {
 
 fn main() {
     // Make a listener on 0.0.0.0:8080
-    let (listener, _) = wire::listen("0.0.0.0", 8080).unwrap();
+    let (listener, _) = wire::listen_tcp("0.0.0.0", 8080).unwrap();
 
     // Only allow incoming messages of at max 8 bytes, and verify that we aren't
     // writing anything over 16 bytes.
@@ -25,7 +25,7 @@ fn main() {
         // Spawn a new thread for each connection that we get.
         Thread::spawn(move || {
             // Upgrade the connection to read `u64` and write `(u64, u64)`.
-            let (i, mut o) = wire::upgrade(connection, read_limit, write_limit);
+            let (i, mut o) = wire::upgrade_tcp(connection, read_limit, write_limit);
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
