@@ -1,3 +1,4 @@
+use std::io::net::ip::ToSocketAddr;
 use std::io::net::tcp::{
     TcpStream,
     TcpListener,
@@ -69,13 +70,10 @@ impl <T> Drop for OutTcpStream<T> {
 
 /// Connect to a server and open a send-receive pair.  See `upgrade` for more
 /// details.
-pub fn connect_tcp<'a, 'b, I, O>(ip: &str, port: u16,
-                             read_limit: SizeLimit, write_limit: SizeLimit) ->
+pub fn connect_tcp<'a, 'b, I, O, A>(addr: A, read_limit: SizeLimit, write_limit: SizeLimit) ->
 IoResult<(Receiver<I, DecodingError>, OutTcpStream<O>)>
-where I: Send + Decodable,
-      O: Encodable {
-    let path = format!("{}:{}", ip, port);
-    Ok(upgrade_tcp(try!(TcpStream::connect(path.as_slice())), read_limit, write_limit))
+where I: Send + Decodable, O: Encodable, A: ToSocketAddr {
+    Ok(upgrade_tcp(try!(TcpStream::connect(addr)), read_limit, write_limit))
 }
 
 /// Starts listening for connections on this ip and port.
@@ -84,9 +82,9 @@ where I: Send + Decodable,
 ///   these.
 /// * A TcpAcceptor.  This can be used to close the listener from outside of the
 ///   listening thread.
-pub fn listen_tcp(ip: &str, port: u16) ->
-IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
-    let tcpl = try!(try!(TcpListener::bind((ip, port))).listen());
+pub fn listen_tcp<A>(addr: A) -> IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)>
+where A: ToSocketAddr {
+    let tcpl = try!(try!(TcpListener::bind(addr)).listen());
     let (sx, rx) = channel();
 
     let mut tcpl2 = tcpl.clone();
@@ -117,8 +115,8 @@ IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)> {
 /// Upgrades a TcpStream to a Sender-Receiver pair that you can use to send and
 /// receive objects automatically.  If there is an error decoding or encoding
 /// values, that respective part is shut down.
-pub fn upgrade_tcp<'a, 'b, I, O>(stream: TcpStream,
-                             read_limit: SizeLimit, write_limit: SizeLimit) ->
+pub fn upgrade_tcp<'a, 'b, I, O>(
+    stream: TcpStream, read_limit: SizeLimit, write_limit: SizeLimit) ->
 (InTcpStream<I>, OutTcpStream<O>)
 where I: Send + Decodable,
       O: Encodable {
