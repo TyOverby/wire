@@ -13,7 +13,7 @@ fn fib(n: u64) -> u64 {
 
 fn main() {
     // Make a listener on 0.0.0.0:8080
-    let (listener, _) = wire::listen_tcp("0.0.0.0", 8080).unwrap();
+    let (listener, _) = wire::listen_tcp(("0.0.0.0", 8080)).unwrap();
 
     // Only allow incoming messages of at max 8 bytes, and verify that we aren't
     // writing anything over 16 bytes.
