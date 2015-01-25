@@ -17,8 +17,8 @@ fn main() {
 
     // Only allow incoming messages of at max 8 bytes, and verify that we aren't
     // writing anything over 16 bytes.
-    let (read_limit, write_limit) = (SizeLimit::UpperBound(8),
-                                     SizeLimit::UpperBound(16));
+    let (read_limit, write_limit) = (SizeLimit::Bounded(8),
+                                     SizeLimit::Bounded(16));
 
     // Turn the listener into an iterator of connections.
     for connection in listener.into_blocking_iter() {

@@ -5,8 +5,8 @@ use wire::SizeLimit;
 fn main() {
     // Only allow incomming messages of at max 16 bytes, and verify that all of
     // our outgoing messages aren't over 8 bytes.
-    let (read_limit, write_limit) = (SizeLimit::UpperBound(16),
-                                     SizeLimit::UpperBound(8));
+    let (read_limit, write_limit) = (SizeLimit::Bounded(16),
+                                     SizeLimit::Bounded(8));
 
     // Connect to our running fib-server.
     // incoming: (u64, u64)

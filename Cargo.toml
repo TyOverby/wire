@@ -1,7 +1,7 @@
 [package]
 
 name = "wire"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["TyOverby <ty@pre-alpha.com>"]
 
 repository = "https://github.com/TyOverby/wire"
@@ -11,6 +11,6 @@ license = "MIT"
 description = "An abstraction over TCP and struct serialization"
 
 [dependencies]
-bincode = "0.0.6"
-bchannel = "0.0.3"
-rustc-serialize = "0.2.7"
+bincode = "*"
+bchannel = "*"
+rustc-serialize = "0.2.*"
