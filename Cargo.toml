@@ -13,4 +13,4 @@ description = "An abstraction over TCP and struct serialization"
 [dependencies]
 bincode = "*"
 bchannel = "*"
-rustc-serialize = "0.2.*"
+rustc-serialize = "*"
