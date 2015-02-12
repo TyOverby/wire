@@ -1,4 +1,4 @@
-#![feature(unsafe_destructor)]
+#![feature(unsafe_destructor, io)]
 #![allow(unstable)]
 
 extern crate bincode;

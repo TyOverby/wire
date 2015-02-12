@@ -1,11 +1,11 @@
-use std::io::net::ip::ToSocketAddr;
-use std::io::net::tcp::{
+use std::old_io::net::ip::ToSocketAddr;
+use std::old_io::net::tcp::{
     TcpStream,
     TcpListener,
     TcpAcceptor
 };
 
-use std::io::{
+use std::old_io::{
     IoResult,
     IoError,
     BufferedReader,
