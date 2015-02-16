@@ -18,7 +18,8 @@ These files can be found in the `examples` directory.
 ```rust
 extern crate wire;
 
-use std::task::spawn;
+use std::thread::Thread;
+use wire::SizeLimit;
 
 fn fib(n: u64) -> u64 {
     match n {
@@ -30,17 +31,23 @@ fn fib(n: u64) -> u64 {
 
 fn main() {
     // Make a listener on 0.0.0.0:8080
-    let (listener, _) = wire::listen("0.0.0.0", 8080).unwrap();
+    let (listener, _) = wire::listen_tcp(("0.0.0.0", 8080)).unwrap();
+
+    // Only allow incoming messages of at max 8 bytes, and verify that we aren't
+    // writing anything over 16 bytes.
+    let (read_limit, write_limit) = (SizeLimit::Bounded(8),
+                                     SizeLimit::Bounded(16));
+
     // Turn the listener into an iterator of connections.
     for connection in listener.into_blocking_iter() {
         // Spawn a new thread for each connection that we get.
-        spawn(proc() {
+        Thread::spawn(move || {
             // Upgrade the connection to read `u64` and write `(u64, u64)`.
-            let (i, mut o) = wire::upgrade(connection);
+            let (i, mut o) = wire::upgrade_tcp(connection, read_limit, write_limit);
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
-                o.send(&(x, fib(x)));
+                o.send(&(x, fib(x))).ok();
             }
         });
     }
@@ -53,17 +60,27 @@ fn main() {
 ```rust
 extern crate wire;
 
+use wire::SizeLimit;
+
 fn main() {
+    // Only allow incomming messages of at max 16 bytes, and verify that all of
+    // our outgoing messages aren't over 8 bytes.
+    let (read_limit, write_limit) = (SizeLimit::Bounded(16),
+                                     SizeLimit::Bounded(8));
+
     // Connect to our running fib-server.
     // incoming: (u64, u64)
     // outgoing: u64
-    let (i, mut o) = wire::connect("localhost", 8080).unwrap();
+    let (i, mut o) = wire::connect_tcp(("localhost", 8080), read_limit, write_limit).unwrap();
 
     // Send all the numbers from 0 to 10.
-    for x in range(0u64, 10u64) {
-        o.send(&x);
+    for x in 0u64 .. 10u64 {
+        o.send(&x).ok();
     }
-    // Close our outgoing pipe.
+
+    // Close our outgoing pipe. This is necessary because otherwise,
+    // the iterator in the next segment will block forever awaiting responses
+    // that will never be triggered.
     o.close();
 
     // Print everything that we get back.
