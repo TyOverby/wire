@@ -14,7 +14,7 @@ use std::old_io::{
     TimedOut
 };
 
-use std::thread::Thread;
+use std::thread::spawn;
 
 use serialize::{Decodable, Encodable};
 
@@ -72,7 +72,7 @@ impl <T> Drop for OutTcpStream<T> {
 /// details.
 pub fn connect_tcp<'a, 'b, I, O, A>(addr: A, read_limit: SizeLimit, write_limit: SizeLimit) ->
 IoResult<(Receiver<I, DecodingError>, OutTcpStream<O>)>
-where I: Send + Decodable, O: Encodable, A: ToSocketAddr {
+where I: Send + Decodable + 'static, O: Encodable, A: ToSocketAddr {
     Ok(upgrade_tcp(try!(TcpStream::connect(addr)), read_limit, write_limit))
 }
 
@@ -88,7 +88,7 @@ where A: ToSocketAddr {
     let (sx, rx) = channel();
 
     let mut tcpl2 = tcpl.clone();
-    Thread::spawn(move || {
+    spawn(move || {
         loop {
             if sx.is_closed() {
                 break;
@@ -118,8 +118,7 @@ where A: ToSocketAddr {
 pub fn upgrade_tcp<'a, 'b, I, O>(
     stream: TcpStream, read_limit: SizeLimit, write_limit: SizeLimit) ->
 (InTcpStream<I>, OutTcpStream<O>)
-where I: Send + Decodable,
-      O: Encodable {
+where I: Send + Decodable + 'static, O: Encodable {
     (upgrade_reader(stream.clone(), read_limit),
      upgrade_writer(stream, write_limit))
 }
@@ -133,10 +132,10 @@ where T: Encodable {
 }
 
 fn upgrade_reader<'a, T>(stream: TcpStream, read_limit: SizeLimit) -> InTcpStream<T>
-where T: Send + Decodable {
+where T: Send + Decodable + 'static {
     let (in_snd, in_rec) = channel();
 
-    Thread::spawn(move || {
+    spawn(move || {
         let mut buffer = BufferedReader::new(stream);
         let read_limit = read_limit;
         loop {
