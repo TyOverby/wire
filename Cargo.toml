@@ -11,6 +11,6 @@ license = "MIT"
 description = "An abstraction over TCP and struct serialization"
 
 [dependencies]
-bincode = "*"
+bincode = "0.0.9"
 bchannel = "*"
 rustc-serialize = "*"
