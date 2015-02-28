@@ -18,7 +18,7 @@ These files can be found in the `examples` directory.
 ```rust
 extern crate wire;
 
-use std::thread::Thread;
+use std::thread::spawn;
 use wire::SizeLimit;
 
 fn fib(n: u64) -> u64 {
@@ -39,11 +39,11 @@ fn main() {
                                      SizeLimit::Bounded(16));
 
     // Turn the listener into an iterator of connections.
-    for connection in listener.into_blocking_iter() {
+    for (connection, _) in listener.into_blocking_iter() {
         // Spawn a new thread for each connection that we get.
-        Thread::spawn(move || {
+        spawn(move || {
             // Upgrade the connection to read `u64` and write `(u64, u64)`.
-            let (i, mut o) = wire::upgrade_tcp(connection, read_limit, write_limit);
+            let (i, mut o) = wire::upgrade_tcp(connection, read_limit, write_limit).unwrap();
             // For each `u64` that we read from the network...
             for x in i.into_blocking_iter() {
                 // Send that number back with the computed value.
