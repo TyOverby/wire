@@ -19,8 +19,8 @@ fn main() {
     }
 
     // Close our outgoing pipe. This is necessary because otherwise,
-    // the iterator in the next segment will block forever awaiting responses
-    // that will never be triggered.
+    // the server will keep waiting for the client to send it data and
+    // we will deadlock.
     o.close();
 
     // Print everything that we get back.
