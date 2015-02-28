@@ -1,18 +1,11 @@
-use std::old_io::net::ip::ToSocketAddr;
-use std::old_io::net::tcp::{
-    TcpStream,
-    TcpListener,
-    TcpAcceptor
-};
+use std::net::ToSocketAddrs;
 
-use std::old_io::{
-    IoResult,
-    IoError,
-    BufferedReader,
-    Listener,
-    Acceptor,
-    TimedOut
-};
+use std::net::{TcpStream, TcpListener};
+use std::net::{Shutdown, SocketAddr};
+
+use std::io::Result as IoResult;
+use std::io::Error as IoError;
+use std::io::{BufReader, ErrorKind};
 
 use std::thread::spawn;
 
@@ -64,7 +57,7 @@ where T: Encodable {
 #[unsafe_destructor]
 impl <T> Drop for OutTcpStream<T> {
     fn drop(&mut self) {
-        self.tcp_stream.close_write().ok();
+        self.tcp_stream.shutdown(Shutdown::Write).ok();
     }
 }
 
@@ -72,8 +65,8 @@ impl <T> Drop for OutTcpStream<T> {
 /// details.
 pub fn connect_tcp<'a, 'b, I, O, A>(addr: A, read_limit: SizeLimit, write_limit: SizeLimit) ->
 IoResult<(Receiver<I, DecodingError>, OutTcpStream<O>)>
-where I: Send + Decodable + 'static, O: Encodable, A: ToSocketAddr {
-    Ok(upgrade_tcp(try!(TcpStream::connect(addr)), read_limit, write_limit))
+where I: Send + Decodable + 'static, O: Encodable, A: ToSocketAddrs {
+    Ok(try!(upgrade_tcp(try!(TcpStream::connect(&addr)), read_limit, write_limit)))
 }
 
 /// Starts listening for connections on this ip and port.
@@ -82,12 +75,12 @@ where I: Send + Decodable + 'static, O: Encodable, A: ToSocketAddr {
 ///   these.
 /// * A TcpAcceptor.  This can be used to close the listener from outside of the
 ///   listening thread.
-pub fn listen_tcp<A>(addr: A) -> IoResult<(Receiver<TcpStream, IoError>, TcpAcceptor)>
-where A: ToSocketAddr {
-    let tcpl = try!(try!(TcpListener::bind(addr)).listen());
+pub fn listen_tcp<A>(addr: A) -> IoResult<(Receiver<(TcpStream, SocketAddr), IoError>, TcpListener)>
+where A: ToSocketAddrs {
+    let tcpl = try!(TcpListener::bind(&addr));
     let (sx, rx) = channel();
 
-    let mut tcpl2 = tcpl.clone();
+    let tcpl2 = try!(tcpl.try_clone());
     spawn(move || {
         loop {
             if sx.is_closed() {
@@ -99,7 +92,7 @@ where A: ToSocketAddr {
                         break;
                     }
                 }
-                Err(IoError{kind: TimedOut, ..}) => {
+                Err(ref e) if e.kind() == ErrorKind::TimedOut => {
                     continue;
                 }
                 Err(e) => {
@@ -117,10 +110,12 @@ where A: ToSocketAddr {
 /// values, that respective part is shut down.
 pub fn upgrade_tcp<'a, 'b, I, O>(
     stream: TcpStream, read_limit: SizeLimit, write_limit: SizeLimit) ->
-(InTcpStream<I>, OutTcpStream<O>)
+IoResult<(InTcpStream<I>, OutTcpStream<O>)>
 where I: Send + Decodable + 'static, O: Encodable {
-    (upgrade_reader(stream.clone(), read_limit),
-     upgrade_writer(stream, write_limit))
+    let s1 = stream;
+    let s2 = try!(s1.try_clone());
+    Ok((upgrade_reader(s1, read_limit),
+     upgrade_writer(s2, write_limit)))
 }
 
 fn upgrade_writer<'a, T>(stream: TcpStream, write_limit: SizeLimit) -> OutTcpStream<T>
@@ -136,7 +131,7 @@ where T: Send + Decodable + 'static {
     let (in_snd, in_rec) = channel();
 
     spawn(move || {
-        let mut buffer = BufferedReader::new(stream);
+        let mut buffer = BufReader::new(stream);
         let read_limit = read_limit;
         loop {
             match bincode::decode_from(&mut buffer, read_limit) {
@@ -153,8 +148,8 @@ where T: Send + Decodable + 'static {
                 }
             }
         }
-        let mut s1 = buffer.into_inner();
-        let _ = s1.close_read();
+        let s1 = buffer.into_inner();
+        let _ = s1.shutdown(Shutdown::Read);
     });
     in_rec
 }
