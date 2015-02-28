@@ -1,4 +1,4 @@
-#![feature(unsafe_destructor, core, net, io)]
+#![feature(unsafe_destructor, net, io)]
 
 extern crate bincode;
 extern crate "rustc-serialize" as serialize;

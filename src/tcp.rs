@@ -1,5 +1,4 @@
 use std::net::ToSocketAddrs;
-
 use std::net::{TcpStream, TcpListener};
 use std::net::{Shutdown, SocketAddr};
 
@@ -8,6 +7,8 @@ use std::io::Error as IoError;
 use std::io::{BufReader, ErrorKind};
 
 use std::thread::spawn;
+
+use std::marker::PhantomData;
 
 use serialize::{Decodable, Encodable};
 
@@ -27,7 +28,8 @@ pub type InTcpStream<T> = Receiver<T, DecodingError>;
 
 pub struct OutTcpStream<T> {
     tcp_stream: TcpStream,
-    write_limit: SizeLimit
+    write_limit: SizeLimit,
+    _phantom: PhantomData<T>
 }
 
 impl <'a, T> OutTcpStream<T>
@@ -122,7 +124,8 @@ fn upgrade_writer<'a, T>(stream: TcpStream, write_limit: SizeLimit) -> OutTcpStr
 where T: Encodable {
     OutTcpStream {
         tcp_stream: stream,
-        write_limit: write_limit
+        write_limit: write_limit,
+        _phantom: PhantomData
     }
 }
 
