@@ -20,7 +20,6 @@ use bincode::{
 };
 
 use bchannel::channel;
-
 pub use bincode::SizeLimit;
 pub use bchannel::Receiver;
 
