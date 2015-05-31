@@ -1,5 +1,6 @@
 use bchannel::{self, channel};
 use std::net::{ToSocketAddrs, UdpSocket, SocketAddr};
+use std::collections::HashSet;
 use std::io::Result as IoResult;
 use std::thread;
 use std::marker::PhantomData;
@@ -14,6 +15,15 @@ use serialize;
 pub struct Sender<T> {
     backing: bchannel::Sender<(Vec<u8>, AddrsContainer), unre::UnrError>,
     _phantom: PhantomData<T>
+}
+
+impl <T> Clone for Sender<T> {
+    fn clone(&self) -> Sender<T> {
+        Sender {
+            backing: self.backing.clone(),
+            _phantom: PhantomData
+        }
+    }
 }
 
 impl <T: serialize::Encodable> Sender<T> {
@@ -36,14 +46,21 @@ impl <T: serialize::Encodable> Sender<T> {
 
 pub type Receiver<T> = bchannel::Receiver<T, unre::UnrError>;
 
-pub fn bind<A: ToSocketAddrs, I, O>(addr: A) -> IoResult<(Sender<I>,  Receiver<(SocketAddr, O)>)>
+pub fn bind<I, O, A: ToSocketAddrs>(addr: A) -> IoResult<(Sender<I>,  Receiver<(SocketAddr, O)>)>
 where A: ToSocketAddrs, I: serialize::Encodable, O: serialize::Decodable + Send + 'static {
+    let addrs_clonable = try!(AddrsContainer::from_to_sock(addr));
+
+    let mut whitelist = HashSet::new();
+    whitelist.extend(try!(addrs_clonable.to_socket_addrs()));
+
     let message_size = 1024;
-    let sock_1 = try!(UdpSocket::bind(addr));
+    let sock_1 = try!(UdpSocket::bind(addrs_clonable.clone()));
     let sock_2 = try!(sock_1.try_clone());
 
+
     let back_send = unre::Sender::from_socket(sock_1, message_size, 1);
-    let back_recv = unre::Receiver::from_socket(sock_2, message_size);
+    let back_recv = unre::Receiver::from_socket(sock_2, message_size, None,
+        unre::network::ReceiverFilter::Whitelist(whitelist));
 
     let (in_s, in_r) = channel();
     let (out_s, out_r) = channel();
@@ -57,10 +74,14 @@ where A: ToSocketAddrs, I: serialize::Encodable, O: serialize::Decodable + Send 
             }
 
             for (bytes, from) in in_r.iter() {
-                back_send.enqueue(bytes, from);
+                if back_send.enqueue(bytes, from).is_err() {
+                    break;
+                }
             }
 
-            back_send.send_one();
+            if back_send.send_one().is_err() {
+                break;
+            }
             thread::sleep_ms(2);
         }
     });
@@ -70,18 +91,22 @@ where A: ToSocketAddrs, I: serialize::Encodable, O: serialize::Decodable + Send 
         let mut back_recv = back_recv;
         loop {
             match back_recv.poll() {
-                Ok((from, CompleteMessage(id, bytes))) => {
+                Ok((from, CompleteMessage(_id, bytes))) => {
                     match bincode::decode(&bytes[..]) {
                         // TODO: better error handling
-                        Ok(obj) => out_s.send((from, obj)),
+                        Ok(obj) => {
+                            if out_s.send((from, obj)).is_err() {
+                                break;
+                            }
+                        },
                         Err(e) => {
-                            out_s.error(unre::UnrError::DecodingError(e));
+                            let _ = out_s.error(unre::UnrError::DecodingError(e));
                             break;
                         }
                     };
                 }
                 Err(e) => {
-                    out_s.error(e);
+                    let _ = out_s.error(e);
                     break;
                 }
             }

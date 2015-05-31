@@ -13,9 +13,5 @@ description = "An abstraction over TCP and struct serialization"
 [dependencies]
 bincode = "*"
 rustc-serialize = "*"
-
-[dependencies.unreliable-message]
-path = "../unreliable-message"
-
-[dependencies.bchannel]
-path = "../bchannel"
+unreliable-message = "0.0.3"
+bchannel = "*"

@@ -55,7 +55,6 @@ where T: Encodable {
     pub fn close(self) {}
 }
 
-#[unsafe_destructor]
 impl <T> Drop for OutTcpStream<T> {
     fn drop(&mut self) {
         self.tcp_stream.shutdown(Shutdown::Write).ok();

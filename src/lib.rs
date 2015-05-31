@@ -1,5 +1,3 @@
-#![feature(unsafe_destructor)]
-
 extern crate bincode;
 extern crate rustc_serialize as serialize;
 extern crate bchannel;
