@@ -13,5 +13,9 @@ description = "An abstraction over TCP and struct serialization"
 [dependencies]
 bincode = "*"
 rustc-serialize = "*"
-unreliable-message = "0.0.1"
-bchannel = "0.0.9"
+
+[dependencies.unreliable-message]
+git = "https://github.com/TyOverby/unreliable-message.git"
+
+[dependencies.bchannel]
+git = "https://github.com/TyOverby/bchannel.git"
