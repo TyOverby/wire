@@ -15,7 +15,7 @@ bincode = "*"
 rustc-serialize = "*"
 
 [dependencies.unreliable-message]
-path = "../unreliable-message"
+git = "https://github.com/TyOverby/unreliable-message.git"
 
 [dependencies.bchannel]
-path = "../bchannel"
+git = "https://github.com/TyOverby/bchannel.git"

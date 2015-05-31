@@ -43,7 +43,7 @@ where A: ToSocketAddrs, I: serialize::Encodable, O: serialize::Decodable + Send 
     let sock_2 = try!(sock_1.try_clone());
 
     let back_send = unre::Sender::from_socket(sock_1, message_size, 1);
-    let back_recv = unre::Receiver::from_socket(sock_2, message_size);
+    let back_recv = unre::Receiver::from_socket(sock_2, message_size, None, unre::network::ReceiverFilter::empty_blacklist());
 
     let (in_s, in_r) = channel();
     let (out_s, out_r) = channel();
