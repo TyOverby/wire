@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["CommMsg",""]],"fn":[["channel","Returns a Sender-Receiver pair sending messages of type T, and can fail with an error of type E."]],"struct":[["Receiver","The receiving end of the channel."],["ReceiverIterator","An iterator over received items."],["Sender","The sending end of the channel."]]});

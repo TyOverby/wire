@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["bind",""]],"struct":[["Sender",""]],"type":[["Receiver",""]]});
