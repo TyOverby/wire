@@ -12,8 +12,8 @@ use std::marker::PhantomData;
 
 use serialize::{Decodable, Encodable};
 
-use bincode::{
-    self,
+use bincode;
+use bincode::rustc_serialize::{
     EncodingResult,
     EncodingError,
     DecodingError
@@ -34,7 +34,7 @@ pub struct OutTcpStream<T> {
 impl <'a, T> OutTcpStream<T>
 where T: Encodable {
     pub fn send(&mut self, m: &T) -> EncodingResult<()> {
-        bincode::encode_into(m, &mut self.tcp_stream, self.write_limit)
+        bincode::rustc_serialize::encode_into(m, &mut self.tcp_stream, self.write_limit)
     }
 
     pub fn send_all<'b, I: Iterator<Item = &'b T>>(&mut self, mut i: I) ->
@@ -135,7 +135,7 @@ where T: Send + Decodable + 'static {
         let mut buffer = BufReader::new(stream);
         let read_limit = read_limit;
         loop {
-            match bincode::decode_from(&mut buffer, read_limit) {
+            match bincode::rustc_serialize::decode_from(&mut buffer, read_limit) {
                 Ok(a) => {
                     // Try to send, and if we can't, then the channel is closed.
                     if in_snd.send(a).is_err() {

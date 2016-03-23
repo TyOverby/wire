@@ -11,6 +11,9 @@ use unreliable_message as unre;
 use bincode;
 use serialize;
 
+use bincode::rustc_serialize::{
+    EncodingResult,
+};
 
 pub struct Sender<T> {
     backing: bchannel::Sender<(Vec<u8>, AddrsContainer), unre::UnrError>,
@@ -34,8 +37,8 @@ impl <T: serialize::Encodable> Sender<T> {
         }
     }
 
-    pub fn send<A: ToSocketAddrs>(&self, object: &T, addrs: A) -> bincode::EncodingResult<()> {
-        let encoded = try!(bincode::encode(object, bincode::SizeLimit::Infinite));
+    pub fn send<A: ToSocketAddrs>(&self, object: &T, addrs: A) -> EncodingResult<()> {
+        let encoded = try!(bincode::rustc_serialize::encode(object, bincode::SizeLimit::Infinite));
         // TODO: make error returning way more general.
         let _ = self.backing.send((encoded, AddrsContainer::from_to_sock(addrs).unwrap()));
         Ok(())
@@ -82,7 +85,7 @@ where A: ToSocketAddrs, I: serialize::Encodable, O: serialize::Decodable + Send 
             if back_send.send_one().is_err() {
                 break;
             }
-            thread::sleep_ms(2);
+            thread::sleep(::std::time::Duration::from_millis(2));
         }
     });
 
@@ -92,7 +95,7 @@ where A: ToSocketAddrs, I: serialize::Encodable, O: serialize::Decodable + Send 
         loop {
             match back_recv.poll() {
                 Ok((from, CompleteMessage(_id, bytes))) => {
-                    match bincode::decode(&bytes[..]) {
+                    match bincode::rustc_serialize::decode(&bytes[..]) {
                         // TODO: better error handling
                         Ok(obj) => {
                             if out_s.send((from, obj)).is_err() {

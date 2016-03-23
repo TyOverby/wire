@@ -20,8 +20,10 @@ fn main() {
 
     if let Some(theirs) = theirs {
         let stdin = std::io::stdin();
+        println!("waiting for message to send");
         for line in stdin.lock().lines().filter_map(|a| a.ok()) {
-            sender.send(&line, theirs);
+            sender.send(&line, theirs).unwrap();
+            println!("sent: {}", line);
         }
     } else {
         for (from, m) in receiver.into_blocking_iter() {
